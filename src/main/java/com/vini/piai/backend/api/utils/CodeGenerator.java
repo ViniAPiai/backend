@@ -12,6 +12,11 @@ public class CodeGenerator {
 
     private final CodeGeneratorEnvironment codeGeneratorEnvironment;
 
+    /**
+     * Method for generating the code with the number of characters set in the code generation environment
+     * for password redefinition
+     * @return the code
+     */
     public String generateCode() {
         String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         SecureRandom RANDOM = new SecureRandom();

@@ -1,48 +1,52 @@
 package com.vini.piai.backend.api.access.refreshToken;
 
-import org.springframework.stereotype.Service;
+import com.vini.piai.backend.api.access.refreshToken.dto.RefreshTokenDtoRequest;
+import com.vini.piai.backend.api.access.user.User;
 import com.vini.piai.backend.api.access.user.UserService;
+import com.vini.piai.backend.api.utils.ExceptionEnum;
+import com.vini.piai.backend.security.jwt.JwtService;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
+    private final JwtService jwtService;
 
-    public RefreshTokenService(RefreshTokenRepository refreshTokenRepository, UserService userService) {
-        this.refreshTokenRepository = refreshTokenRepository;
-        this.userService = userService;
-    }
-
-    public RefreshToken createOrUpdateRefreshToken(String email, String token, Instant expiryDate) {
-        Optional<RefreshToken> refreshTokenOptional = refreshTokenRepository.findByUserEmail(email);
-        if(refreshTokenOptional.isPresent()){
-            RefreshToken refreshToken = refreshTokenOptional.get();
+    public void createOrUpdate(User user) {
+        Optional<RefreshToken> optional = refreshTokenRepository.findByUser(user);
+        String token = jwtService.generateRefreshToken(user);
+        if(optional.isPresent()) {
+            RefreshToken refreshToken = optional.get();
             refreshToken.setToken(token);
-            refreshToken.setExpireIn(expiryDate);
-            return refreshTokenRepository.save(refreshToken);
+            refreshToken.setExpireIn(jwtService.extractExpiration(token).toInstant());
+            refreshTokenRepository.save(refreshToken);
+            return;
         }
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(userService.findByEmail(email))
-                .token(token)
-                .expireIn(expiryDate)
-                .build();
-        return refreshTokenRepository.save(refreshToken);
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken(token);
+        refreshToken.setExpireIn(jwtService.extractExpiration(token).toInstant());
+        refreshToken.setUser(user);
+        refreshTokenRepository.save(refreshToken);
     }
 
-    public RefreshToken findByToken(String token) {
-        return refreshTokenRepository.findByToken(token).orElseThrow();
-    }
-
-    public RefreshToken verifyExpiration(RefreshToken token) {
-        if (token.getExpireIn().compareTo(Instant.now()) < 0) {
-            refreshTokenRepository.delete(token);
-            throw new RuntimeException(token.getToken() + " Refresh token is expired. Please make a new login..!");
+    public RefreshTokenDtoRequest refreshToken(RefreshTokenDtoRequest dto) {
+        Optional<RefreshToken> optional = refreshTokenRepository.findByToken(dto.token());
+        if(optional.isPresent()){
+            if (optional.get().getExpireIn().compareTo(Instant.now()) < 0) {
+                refreshTokenRepository.delete(optional.get());
+                throw new RuntimeException(ExceptionEnum.REFRESH_TOKEN_IS_EXPIRED_PLEASE_LOGIN.getTopic());
+            }
+            User user = userService.findByEmail(jwtService.extractUsername(optional.get().getToken()));
+            return new RefreshTokenDtoRequest(jwtService.generateToken(user));
         }
-        return token;
+        throw new RuntimeException(ExceptionEnum.REFRESH_TOKEN_IS_EXPIRED_PLEASE_LOGIN.getTopic());
     }
 
 }

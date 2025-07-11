@@ -9,6 +9,8 @@
 - ✅ Privileges for the roles, such as create, read, write, update, delete, or create the one you like
 - ✅ Swagger / OpenApi included
 - ✅ Dockerfile already set up
+- ✅ Refresh Token
+- ✅ Password reset steps
 
 ---
 
